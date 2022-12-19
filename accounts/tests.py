@@ -69,3 +69,38 @@ class LoginUserTest(APITestCase):
         self.assertIsInstance(response.data['token'], str)
         self.assertGreater(len(response.data['token']), 0)
         self.assertIsInstance(response.data['id'], int)
+
+
+class ManageUserTests(APITestCase):
+    def setUp(self):
+        self.initial_data = {'username': 'john', 'first_name': 'john', 'last_name': 'doe', 'email': 'john@gmail.com'}
+        self.password = '098johndoe'
+        self.client = APIClient()
+        initial_user = User(**self.initial_data)
+        initial_user.set_password(self.password)
+        initial_user.save()
+
+        self.token = Token.objects.create(user=initial_user)
+
+        self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+
+    def test_should_return_400_status_code_if_invalid_data_is_sent(self):
+        response = self.client.patch('/accounts/manage', {}, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_should_return_200_status_code_if_valid_data_is_sent(self):
+        response = self.client.patch('/accounts/manage', {'username': self.initial_data.get('username')}, format='json')
+        self.assertEqual(response.status_code, 200)
+
+    def test_should_return_user_token_and_id_if_request_is_sucessfull(self):
+        response = self.client.patch('/accounts/manage', {'first_name': str.upper(self.initial_data.get('first_name'))}, format='json')
+        self.assertIsInstance(response.data['id'], int)
+        self.assertIsInstance(response.data['token'], str)
+        self.assertGreater(len(response.data['token']), 0)
+
+    def test_should_modified_user_in_database_if_request_is_successfull(self):
+        self.client.patch('/accounts/manage', {'username': str.upper(self.initial_data.get('username'))}, format='json')
+        updated_user = User.objects.get(username=str.upper(self.initial_data.get('username')))
+        self.assertIsInstance(updated_user, User)
+        self.assertEqual(updated_user.username, str.upper(self.initial_data.get('username')))
